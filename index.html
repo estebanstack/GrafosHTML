@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Grafos</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.24.0/cytoscape.min.js"></script>
+    <style>
+        #cy {
+            width: 80%;
+            height: 500px;
+            border: 1px solid black;
+            margin: auto;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="cy"></div>
+    <div class="controls">
+        <button onclick="addNode()">Agregar Nodo</button>
+        <button onclick="deleteNode()">Eliminar Nodo</button>
+        <button onclick="addEdge()">Agregar Enlace</button>
+        <input type="text" id="nodeLabel" placeholder="Nombre del nodo" oninput="updateNodeLabel()">
+        <input type="number" id="duration" placeholder="Duración">
+        <input type="number" id="cost" placeholder="Costo">
+    </div>
+    
+    <script>
+        let cy = cytoscape({
+            container: document.getElementById('cy'),
+            elements: [],
+            style: [
+                {
+                    selector: 'node',
+                    style: {
+                        'label': 'data(label)',
+                        'background-color': '#ff5722', // Cambia el color del nodo
+                        'color': 'white',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'width': '45px',  // Aumenta el tamaño del nodo
+                        'height': '45px', // Aumenta el tamaño del nodo
+                        'font-size': '14px' // Hace el texto un poco más grande
+                    }
+                },
+                {
+                    selector: 'edge',
+                    style: {
+                        'width': 2,
+                        'line-color': '#ccc',
+                        'target-arrow-shape': 'triangle',
+                        'curve-style': 'bezier',
+                        'target-arrow-color': '#ccc',
+                        'label': 'data(label)'
+                    }
+                }
+            ]
+        });
+
+        let nodeId = 0;
+        let selectedNode = null;
+        let edgeStartNode = null;
+
+        function addNode() {
+            nodeId++;
+            let newNode = cy.add({
+                data: { id: '' + nodeId, label: 'Nodo ' + nodeId, duration: 0, cost: 0 },
+                position: { x: Math.random() * 500, y: Math.random() * 500 } // Ubicación aleatoria
+            });
+        }
+
+        function deleteNode() {
+            if (selectedNode) {
+                cy.remove(selectedNode);
+                selectedNode = null;
+                edgeStartNode = null;
+                document.getElementById('nodeLabel').value = '';
+            }
+        }
+
+        function updateNodeLabel() {
+            if (selectedNode) {
+                let newLabel = document.getElementById('nodeLabel').value;
+                selectedNode.data('label', newLabel);
+            }
+        }
+
+        function addEdge() {
+            if (selectedNode && edgeStartNode && selectedNode !== edgeStartNode) {
+                let duration = document.getElementById('duration').value || '0';
+                let cost = document.getElementById('cost').value || '0';
+
+                cy.add({
+                    data: {
+                        id: `edge-${edgeStartNode.id()}-${selectedNode.id()}`,
+                        source: edgeStartNode.id(),
+                        target: selectedNode.id(),
+                        label: `Dur: ${duration}, Costo: ${cost}`
+                    }
+                });
+                edgeStartNode = null;
+                selectedNode = null; // Resetear selección después de agregar el enlace
+            }
+        }
+
+        cy.on('tap', 'node', function(evt) {
+            if (!edgeStartNode) {
+                edgeStartNode = evt.target;
+            } else {
+                selectedNode = evt.target;
+            }
+            document.getElementById('nodeLabel').value = evt.target.data('label');
+        });
+    </script>
+</body>
+</html>

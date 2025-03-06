@@ -25,10 +25,9 @@
     <div class="controls">
         <button onclick="addNode()">Agregar Nodo</button>
         <button onclick="deleteNode()">Eliminar Nodo</button>
-        <button onclick="addEdge()">Agregar Enlace</button>
         <input type="text" id="nodeLabel" placeholder="Nombre del nodo" oninput="updateNodeLabel()">
-        <input type="number" id="duration" placeholder="Duración">
-        <input type="number" id="cost" placeholder="Costo">
+        <input type="number" id="duration" placeholder="Duración" oninput="updateEdgeData()">
+        <input type="number" id="cost" placeholder="Costo" oninput="updateEdgeData()">
     </div>
     
     <script>
@@ -40,13 +39,13 @@
                     selector: 'node',
                     style: {
                         'label': 'data(label)',
-                        'background-color': '#ff5722', // Cambia el color del nodo
+                        'background-color': '#4caf50',
                         'color': 'white',
                         'text-valign': 'center',
                         'text-halign': 'center',
-                        'width': '45px',  // Aumenta el tamaño del nodo
-                        'height': '45px', // Aumenta el tamaño del nodo
-                        'font-size': '14px' // Hace el texto un poco más grande
+                        'width': '45px',
+                        'height': '45px',
+                        'font-size': '14px'
                     }
                 },
                 {
@@ -65,13 +64,14 @@
 
         let nodeId = 0;
         let selectedNode = null;
+        let selectedEdge = null;
         let edgeStartNode = null;
 
         function addNode() {
             nodeId++;
-            let newNode = cy.add({
-                data: { id: '' + nodeId, label: 'Nodo ' + nodeId, duration: 0, cost: 0 },
-                position: { x: Math.random() * 500, y: Math.random() * 500 } // Ubicación aleatoria
+            cy.add({
+                data: { id: '' + nodeId, label: 'Nodo ' + nodeId },
+                position: { x: Math.random() * 500, y: Math.random() * 500 }
             });
         }
 
@@ -91,32 +91,51 @@
             }
         }
 
-        function addEdge() {
-            if (selectedNode && edgeStartNode && selectedNode !== edgeStartNode) {
+        function updateEdgeData() {
+            if (selectedEdge) {
+                let newDuration = document.getElementById('duration').value || '0';
+                let newCost = document.getElementById('cost').value || '0';
+
+                selectedEdge.data({
+                    duration: newDuration,
+                    cost: newCost,
+                    label: `Dur: ${newDuration}, Costo: ${newCost}`
+                });
+            }
+        }
+
+        cy.on('tap', 'node', function(evt) {
+            let tappedNode = evt.target;
+
+            if (!edgeStartNode) {
+                edgeStartNode = tappedNode;
+            } else if (edgeStartNode !== tappedNode) {
                 let duration = document.getElementById('duration').value || '0';
                 let cost = document.getElementById('cost').value || '0';
 
                 cy.add({
                     data: {
-                        id: `edge-${edgeStartNode.id()}-${selectedNode.id()}`,
+                        id: `edge-${edgeStartNode.id()}-${tappedNode.id()}`,
                         source: edgeStartNode.id(),
-                        target: selectedNode.id(),
-                        label: `Dur: ${duration}, Costo: ${cost}`
+                        target: tappedNode.id(),
+                        label: `Dur: ${duration}, Costo: ${cost}`,
+                        duration: duration,
+                        cost: cost
                     }
                 });
-                edgeStartNode = null;
-                selectedNode = null; // Resetear selección después de agregar el enlace
-            }
-        }
 
-        cy.on('tap', 'node', function(evt) {
-            if (!edgeStartNode) {
-                edgeStartNode = evt.target;
-            } else {
-                selectedNode = evt.target;
+                edgeStartNode = null; // Reset para el próximo enlace
             }
-            document.getElementById('nodeLabel').value = evt.target.data('label');
+            selectedNode = tappedNode;
+            document.getElementById('nodeLabel').value = tappedNode.data('label');
         });
+
+        cy.on('tap', 'edge', function(evt) {
+            selectedEdge = evt.target;
+            document.getElementById('duration').value = selectedEdge.data('duration');
+            document.getElementById('cost').value = selectedEdge.data('cost');
+        });
+
     </script>
 </body>
 </html>

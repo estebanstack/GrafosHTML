@@ -4,24 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Editor de Grafos</title>
+    <!-- Importa la librería Cytoscape para la visualización y manipulación de grafos -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.24.0/cytoscape.min.js"></script>
     <style>
+        /* Estilo del contenedor del grafo */
         #cy {
             width: 80%;
             height: 500px;
             border: 1px solid black;
             margin: auto;
         }
+        /*Estilo para los controles (botones e inputs) */
         .controls {
-            display: flex;
+            display: flex; /* Usa flexbox para distribuir los elementos */
             justify-content: center;
-            margin-top: 10px;
-            gap: 10px;
+            margin-top: 10px; /* Espaciado superior */
+            gap: 10px; /* Espaciado entre los elementos*/
         }
     </style>
 </head>
 <body>
+    <!-- Contenedor donde se renderizará el grafo -->
     <div id="cy"></div>
+
+    <!-- Controles para manipular los nodos y aristas -->
     <div class="controls">
         <button onclick="addNode()">Agregar Nodo</button>
         <button onclick="deleteNode()">Eliminar Nodo</button>
@@ -31,10 +37,11 @@
     </div>
     
     <script>
+        //Inicializa el objeto Cytoscape con configuracion basica
         let cy = cytoscape({
-            container: document.getElementById('cy'),
-            elements: [],
-            style: [
+            container: document.getElementById('cy'), // Contenedor donde se renderizará el grafo
+            elements: [], // Inicialmente, el grafo no tiene elementos (nodos o aristas)
+            style: [  // Estilos de los nodos y aristas
                 {
                     selector: 'node',
                     style: {
@@ -53,8 +60,8 @@
                     style: {
                         'width': 2,
                         'line-color': '#ccc',
-                        'target-arrow-shape': 'triangle',
-                        'curve-style': 'bezier',
+                        'target-arrow-shape': 'triangle', //Flecha en el extremo de la arista
+                        'curve-style': 'bezier', //Usa curvas suaves para las aristas
                         'target-arrow-color': '#ccc',
                         'label': 'data(label)'
                     }
@@ -62,63 +69,66 @@
             ]
         });
 
-        let nodeId = 0;
-        let selectedNode = null;
-        let selectedEdge = null;
-        let edgeStartNode = null;
+        // Variables de control
+        let nodeId = 0; // Contador para asignar identificadores únicos a los nodos
+        let selectedNode = null; // Nodo actualmente seleccionado
+        let selectedEdge = null; // Arista actualmente seleccionada
+        let edgeStartNode = null; // Nodo de inicio para agregar una nueva arista
+
 
         function addNode() {
-            nodeId++;
+            nodeId++; //-> incrementa el contador de nodos
             cy.add({
-                data: { id: '' + nodeId, label: 'Nodo ' + nodeId },
-                position: { x: Math.random() * 500, y: Math.random() * 500 }
+                data: { id: '' + nodeId, label: 'Nodo ' + nodeId }, //-> Asigna un ID y una etiqueta al nodo
+                position: { x: Math.random() * 500, y: Math.random() * 500 } // Posición aleatoria en el grafo
             });
         }
 
         function deleteNode() {
-            if (selectedNode) {
-                cy.remove(selectedNode);
-                selectedNode = null;
-                edgeStartNode = null;
-                document.getElementById('nodeLabel').value = '';
+            if (selectedNode) { //-> Verifica si hay un nodo seleccionado
+                cy.remove(selectedNode); // elimina el nodo del grafo
+                selectedNode = null; //resetea la seleccion
+                edgeStartNode = null; //Resetea el nodo de inicio para aristas
+                document.getElementById('nodeLabel').value = ''; //Limpia el campo de texto
             }
         }
 
         function updateNodeLabel() {
             if (selectedNode) {
-                let newLabel = document.getElementById('nodeLabel').value;
-                selectedNode.data('label', newLabel);
-            }
+                let newLabel = document.getElementById('nodeLabel').value; // Obtiene el nuevo nombre
+                selectedNode.data('label', newLabel); // Actualiza la etiqueta del nodo
+            } 
         }
 
         function updateEdgeData() {
             if (selectedEdge) {
-                let newDuration = document.getElementById('duration').value || '0';
-                let newCost = document.getElementById('cost').value || '0';
+                let newDuration = document.getElementById('duration').value || '0'; // Obtiene la duración
+                let newCost = document.getElementById('cost').value || '0'; // Obtiene el costo
 
                 selectedEdge.data({
-                    duration: newDuration,
-                    cost: newCost,
-                    label: `Dur: ${newDuration}, Costo: ${newCost}`
+                    duration: newDuration, //guarda la duracion
+                    cost: newCost, //guarda el costo
+                    label: `Dur: ${newDuration}, Costo: ${newCost}` // Actualiza la etiqueta de la arista
                 });
             }
         }
 
+        // Evento cuando se hace clic en un nodo
         cy.on('tap', 'node', function(evt) {
-            let tappedNode = evt.target;
+            let tappedNode = evt.target; //obtiene el nodo clickeado
 
-            if (!edgeStartNode) {
-                edgeStartNode = tappedNode;
-            } else if (edgeStartNode !== tappedNode) {
-                let duration = document.getElementById('duration').value || '0';
-                let cost = document.getElementById('cost').value || '0';
+            if (!edgeStartNode) { // Si no se ha seleccionado un nodo de inicio para la arista
+                edgeStartNode = tappedNode; // Se asigna como nodo de inicio
+            } else if (edgeStartNode !== tappedNode) { // Si se selecciona otro nodo, se crea una arista
+                let duration = document.getElementById('duration').value || '0'; //obtiene la duracion
+                let cost = document.getElementById('cost').value || '0'; //obtiene el costo
 
                 cy.add({
                     data: {
-                        id: `edge-${edgeStartNode.id()}-${tappedNode.id()}`,
-                        source: edgeStartNode.id(),
-                        target: tappedNode.id(),
-                        label: `Dur: ${duration}, Costo: ${cost}`,
+                        id: `edge-${edgeStartNode.id()}-${tappedNode.id()}`, // ID único para la arista
+                        source: edgeStartNode.id(), // Nodo de origen
+                        target: tappedNode.id(), // Nodo destino
+                        label: `Dur: ${duration}, Costo: ${cost}`, // Etiqueta con duración y costo
                         duration: duration,
                         cost: cost
                     }
@@ -126,14 +136,15 @@
 
                 edgeStartNode = null; // Reset para el próximo enlace
             }
-            selectedNode = tappedNode;
-            document.getElementById('nodeLabel').value = tappedNode.data('label');
+            selectedNode = tappedNode; // Marca el nodo como seleccionado
+            document.getElementById('nodeLabel').value = tappedNode.data('label'); // Muestra el nombre en el input
         });
 
+        // Evento cuando se hace clic en una arista
         cy.on('tap', 'edge', function(evt) {
-            selectedEdge = evt.target;
-            document.getElementById('duration').value = selectedEdge.data('duration');
-            document.getElementById('cost').value = selectedEdge.data('cost');
+            selectedEdge = evt.target; // Marca la arista como seleccionada
+            document.getElementById('duration').value = selectedEdge.data('duration'); // Muestra duración en el input
+            document.getElementById('cost').value = selectedEdge.data('cost'); //Muestra el costo en el input
         });
 
     </script>

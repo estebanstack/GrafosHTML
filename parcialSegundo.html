@@ -148,22 +148,24 @@
     }
 
     function mostrarMatrizAdyacencia() {
-        const nodes = getNodes();
-        const n = nodes.length;
-        const matriz = Array.from({ length: n }, () => Array(n).fill(0));
-
-        cy.edges().forEach(edge => {
-            const i = nodes.indexOf(edge.source().id());
-            const j = nodes.indexOf(edge.target().id());
-            matriz[i][j] = edge.data('cost');
-        });
-
-        let salida = "Matriz de Adyacencia:\n   " + nodes.join("  ") + "\n";
-        matriz.forEach((fila, i) => {
-            salida += nodes[i] + " " + fila.map(v => String(v).padStart(2)).join("  ") + "\n";
-        });
-
-        document.getElementById('output').value = salida;
+        const nodes = cy.nodes().map(n => n.id());
+            const n = nodes.length;
+            const width = 4; // ancho de cada columna
+            // Header alineado
+            const header = ' '.repeat(width) + nodes.map(id => id.padStart(width)).join('');
+            // Construye matriz
+            const matrix = nodes.map(_ => Array(n).fill(0));
+            cy.edges().forEach(e => {
+                const i = nodes.indexOf(e.source().id());
+                const j = nodes.indexOf(e.target().id());
+                matrix[i][j] = e.data('cost');
+            });
+            // Convierte a texto alineado
+            let out = 'Matriz de Adyacencia:\n' + header + '\n';
+            matrix.forEach((row,i) => {
+                out += String(nodes[i]).padStart(width) + row.map(v => String(v).padStart(width)).join('') + '\n';
+            });
+            document.getElementById('output').value = out;
     }
 
     function mostrarMatrizIncidencia() {

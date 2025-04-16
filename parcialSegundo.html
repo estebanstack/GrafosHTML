@@ -1,0 +1,356 @@
+<!-- Hecho por: Jacobo Acosta, Esteban Castro y Sebastian Gonzalez -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Grafos</title>
+    <!-- Importa la librería Cytoscape para la visualización y manipulación de grafos -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.24.0/cytoscape.min.js"></script>
+    <style>
+        /* Estilo del contenedor del grafo */
+        #cy {
+            width: 80%;
+            height: 500px;
+            border: 1px solid black;
+            margin: auto;
+        }
+        /*Estilo para los controles (botones e inputs) */
+        .controls {
+            display: flex; /* Usa flexbox para distribuir los elementos */
+            justify-content: center;
+            margin-top: 10px; /* Espaciado superior */
+            gap: 10px; /* Espaciado entre los elementos*/
+        }
+    </style>
+</head>
+<body>
+    <!-- Contenedor donde se renderizará el grafo -->
+    <div id="cy"></div>
+
+    <!-- Controles para manipular los nodos y aristas -->
+    <div class="controls">
+        <button onclick="addNode()">Agregar Nodo</button>
+        <button onclick="deleteNode()">Eliminar Nodo</button>
+        <button onclick="deleteEdge()">Eliminar Arista</button>
+        <button onclick="mostrarMatrizAdyacencia()">Matriz de Adyacencia</button>
+        <button onclick="mostrarMatrizIncidencia()">Matriz de Incidencia</button>
+        <button onclick="calcularDijkstra()">Dijkstra</button>
+        <button onclick="mostrarRutaCritica()">Ruta Crítica</button>
+        <button onclick="guardarGrafo()">Guardar Grafo</button>
+        <input type="text" id="nodeLabel" placeholder="Nombre del nodo" oninput="updateNodeLabel()">
+        <input type="number" id="duration" placeholder="Duración" oninput="updateEdgeData()">
+        <input type="number" id="cost" placeholder="Costo" oninput="updateEdgeData()">
+        <input type="file" onchange="cargarGrafo(event)">
+    </div>
+
+        <!-- Área para mostrar resultados en texto -->
+    <div class="controls">
+        <textarea id="output" rows="8" cols="80" placeholder="Resultados aquí..." readonly></textarea>
+    </div>
+    
+    <script>
+        //Inicializa el objeto Cytoscape con configuracion basica
+        let cy = cytoscape({
+            container: document.getElementById('cy'), // Contenedor donde se renderizará el grafo
+            elements: [], // Inicialmente, el grafo no tiene elementos (nodos o aristas)
+            style: [  // Estilos de los nodos y aristas
+                {
+                    selector: 'node',
+                    style: {
+                        'label': 'data(label)',
+                        'background-color': '#4caf50',
+                        'color': 'white',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'width': '45px',
+                        'height': '45px',
+                        'font-size': '14px'
+                    }
+                },
+                {
+                    selector: 'edge',
+                    style: {
+                        'width': 2,
+                        'line-color': '#ccc',
+                        'target-arrow-shape': 'triangle', //Flecha en el extremo de la arista
+                        'curve-style': 'bezier', //Usa curvas suaves para las aristas
+                        'target-arrow-color': '#ccc',
+                        'label': 'data(label)'
+                    }
+                }
+            ]
+        });
+
+        // Variables de control
+        let nodeId = 0; // Contador para asignar identificadores únicos a los nodos
+        let selectedNode = null; // Nodo actualmente seleccionado
+        let selectedEdge = null; // Arista actualmente seleccionada
+        let edgeStartNode = null; // Nodo de inicio para agregar una nueva arista
+
+        function addNode() {
+            nodeId++; //-> incrementa el contador de nodos
+            cy.add({
+                data: { id: '' + nodeId, label: 'Nodo ' + nodeId }, //-> Asigna un ID y una etiqueta al nodo
+                position: { x: Math.random() * 500, y: Math.random() * 500 } // Posición aleatoria en el grafo
+            });
+        }
+
+        function deleteNode() {
+            if (selectedNode) { //-> Verifica si hay un nodo seleccionado
+                cy.remove(selectedNode); // elimina el nodo del grafo
+                selectedNode = null; //resetea la seleccion
+                edgeStartNode = null; //Resetea el nodo de inicio para aristas
+                document.getElementById('nodeLabel').value = ''; //Limpia el campo de texto
+            }
+        }
+
+        function deleteEdge() {
+            if (selectedEdge) { // Verifica si hay una arista seleccionada
+                cy.remove(selectedEdge); // Elimina la arista del grafo
+                selectedEdge = null; // Resetea la selección de la arista
+                document.getElementById('duration').value = '';
+                document.getElementById('cost').value = '';
+            }
+        }
+
+        function updateNodeLabel() {
+            if (selectedNode) {
+                let newLabel = document.getElementById('nodeLabel').value; // Obtiene el nuevo nombre
+                selectedNode.data('label', newLabel); // Actualiza la etiqueta del nodo
+            } 
+        }
+
+        function updateEdgeData() {
+            if (selectedEdge) {
+                let newDuration = document.getElementById('duration').value || '0'; // Obtiene la duración
+                let newCost = document.getElementById('cost').value || '0'; // Obtiene el costo
+
+                selectedEdge.data({
+                    duration: newDuration, //guarda la duracion
+                    cost: newCost, //guarda el costo
+                    label: `Dur: ${newDuration}, Costo: ${newCost}` // Actualiza la etiqueta de la arista
+                });
+            }
+        }
+
+        function getNodes() {
+        return cy.nodes().map(n => n.id());
+        }
+
+        function getEdges() {
+            return cy.edges().map(e => ({
+                source: e.source().id(),
+                target: e.target().id(),
+                weight: parseFloat(e.data('cost')),
+                id: e.id()
+        }));
+    }
+
+    function mostrarMatrizAdyacencia() {
+        const nodes = getNodes();
+        const n = nodes.length;
+        const matriz = Array.from({ length: n }, () => Array(n).fill(0));
+
+        cy.edges().forEach(edge => {
+            const i = nodes.indexOf(edge.source().id());
+            const j = nodes.indexOf(edge.target().id());
+            matriz[i][j] = edge.data('cost');
+        });
+
+        let salida = "Matriz de Adyacencia:\n   " + nodes.join("  ") + "\n";
+        matriz.forEach((fila, i) => {
+            salida += nodes[i] + " " + fila.map(v => String(v).padStart(2)).join("  ") + "\n";
+        });
+
+        document.getElementById('output').value = salida;
+    }
+
+    function mostrarMatrizIncidencia() {
+        const nodes = getNodes();
+        const edges = getEdges();
+        const matriz = nodes.map(_ => Array(edges.length).fill(0));
+
+        edges.forEach((e, idx) => {
+            const i = nodes.indexOf(e.source);
+            const j = nodes.indexOf(e.target);
+            matriz[i][idx] = -1;
+            matriz[j][idx] = 1;
+        });
+
+        let salida = "Matriz de Incidencia:\n   " + edges.map((_, i) => "E" + i).join("  ") + "\n";
+        matriz.forEach((fila, i) => {
+            salida += nodes[i] + " " + fila.map(v => String(v).padStart(2)).join("  ") + "\n";
+        });
+
+        document.getElementById('output').value = salida;
+    }
+
+    function calcularDijkstra() {
+        const nodes = getNodes();
+        if (nodes.length === 0) return;
+
+        const start = prompt("Nodo de inicio para Dijkstra:");
+        if (!nodes.includes(start)) return alert("Nodo no válido");
+
+        let dist = {};
+        let prev = {};
+        let Q = new Set(nodes);
+
+        nodes.forEach(n => {
+            dist[n] = Infinity;
+            prev[n] = null;
+        });
+        dist[start] = 0;
+
+        while (Q.size > 0) {
+            let u = [...Q].reduce((a, b) => dist[a] < dist[b] ? a : b);
+            Q.delete(u);
+
+            cy.edges(`[source="${u}"]`).forEach(edge => {
+                let v = edge.target().id();
+                if (!Q.has(v)) return;
+
+                let alt = dist[u] + parseFloat(edge.data('cost'));
+                if (alt < dist[v]) {
+                    dist[v] = alt;
+                    prev[v] = u;
+                }
+            });
+        }
+
+        // Visualizar rutas
+        cy.edges().removeClass('highlight');
+        cy.nodes().removeClass('highlight');
+        let texto = "Dijkstra desde " + start + ":\n";
+        for (let t of nodes) {
+            if (t === start) continue;
+            let path = [];
+            for (let at = t; at; at = prev[at]) path.push(at);
+            path = path.reverse();
+            texto += `${start} -> ${t}: ${dist[t]} [${path.join(" -> ")}]\n`;
+
+            for (let i = 0; i < path.length - 1; i++) {
+                const edge = cy.getElementById(`edge-${path[i]}-${path[i + 1]}`);
+                if (edge.length) edge.addClass('highlight');
+                cy.getElementById(path[i]).addClass('highlight');
+            }
+            if (path.length) cy.getElementById(path.at(-1)).addClass('highlight');
+        }
+
+        document.getElementById('output').value = texto;
+    }
+
+    function mostrarRutaCritica() {
+        const nodes = getNodes();
+        let visited = new Set();
+        let paths = [];
+
+        function dfs(current, cost, path) {
+            visited.add(current);
+            let edges = cy.edges(`[source="${current}"]`);
+
+            if (edges.length === 0) {
+                paths.push({ path: [...path], total: cost });
+                return;
+            }
+
+            edges.forEach(e => {
+                let next = e.target().id();
+                if (!visited.has(next)) {
+                    dfs(next, cost + parseFloat(e.data('cost')), [...path, next]);
+                }
+            });
+
+            visited.delete(current);
+        }
+
+        nodes.forEach(n => {
+            dfs(n, 0, [n]);
+        });
+
+        if (paths.length === 0) return;
+
+        let maxPath = paths.reduce((a, b) => a.total > b.total ? a : b);
+
+        cy.edges().removeClass('highlight');
+        cy.nodes().removeClass('highlight');
+        for (let i = 0; i < maxPath.path.length - 1; i++) {
+            let id = `edge-${maxPath.path[i]}-${maxPath.path[i + 1]}`;
+            let edge = cy.getElementById(id);
+            if (edge.length) edge.addClass('highlight');
+            cy.getElementById(maxPath.path[i]).addClass('highlight');
+        }
+        cy.getElementById(maxPath.path.at(-1)).addClass('highlight');
+
+        document.getElementById('output').value =
+            `Ruta Crítica:\n${maxPath.path.join(" -> ")} (Costo total: ${maxPath.total})`;
+    }
+
+    function guardarGrafo() {
+        const json = JSON.stringify(cy.json().elements);
+        const blob = new Blob([json], { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "grafo.json";
+        a.click();
+    }
+
+    function cargarGrafo(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const json = JSON.parse(e.target.result);
+            cy.elements().remove();
+            cy.add(json);
+        };
+        reader.readAsText(file);
+    }
+
+    // Estilo para resaltar nodos y aristas
+    cy.style().selector('.highlight').style({
+        'background-color': 'red',
+        'line-color': 'red',
+        'target-arrow-color': 'red',
+        'transition-property': 'background-color, line-color',
+        'transition-duration': '0.5s'
+    }).update();
+
+        // Evento cuando se hace clic en un nodo
+        cy.on('tap', 'node', function(evt) {
+            let tappedNode = evt.target; //obtiene el nodo clickeado
+
+            if (!edgeStartNode) { // Si no se ha seleccionado un nodo de inicio para la arista
+                edgeStartNode = tappedNode; // Se asigna como nodo de inicio
+            } else if (edgeStartNode !== tappedNode) { // Si se selecciona otro nodo, se crea una arista
+                let duration = document.getElementById('duration').value || '0'; //obtiene la duracion
+                let cost = document.getElementById('cost').value || '0'; //obtiene el costo
+
+                cy.add({
+                    data: {
+                        id: `edge-${edgeStartNode.id()}-${tappedNode.id()}`, // ID único para la arista
+                        source: edgeStartNode.id(), // Nodo de origen
+                        target: tappedNode.id(), // Nodo destino
+                        label: `Dur: ${duration}, Costo: ${cost}`, // Etiqueta con duración y costo
+                        duration: duration,
+                        cost: cost
+                    }
+                });
+
+                edgeStartNode = null; // Reset para el próximo enlace
+            }
+            selectedNode = tappedNode; // Marca el nodo como seleccionado
+            document.getElementById('nodeLabel').value = tappedNode.data('label'); // Muestra el nombre en el input
+        });
+
+        // Evento cuando se hace clic en una arista
+        cy.on('tap', 'edge', function(evt) {
+            selectedEdge = evt.target; // Marca la arista como seleccionada
+            document.getElementById('duration').value = selectedEdge.data('duration'); // Muestra duración en el input
+            document.getElementById('cost').value = selectedEdge.data('cost'); //Muestra el costo en el input
+        });
+
+    </script>
+</body>
+</html>
